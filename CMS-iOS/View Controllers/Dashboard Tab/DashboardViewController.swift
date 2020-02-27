@@ -461,7 +461,7 @@ class DashboardViewController : UITableViewController, UISearchBarDelegate, UISe
             if searchController.isActive {
                 cell.courseName.text = filteredCourseList[indexPath.row].courseCode
                 
-                cell.courseFullName.text = filteredCourseList[indexPath.row].courseName.replacingOccurrences(of: "&amp;", with: "&")
+                cell.courseFullName.text = filteredCourseList[indexPath.row].courseName.cleanUp()
                 cell.courseName.textColor = UIColor.UIColorFromString(string: filteredCourseList[indexPath.row].allotedColor)
                 let unreadModules = realm.objects(Module.self).filter("coursename = %@", filteredCourseList[indexPath.row].displayname).filter("read = NO")
                 let currentDiscussionModule = realm.objects(Module.self).filter("coursename = %@", filteredCourseList[indexPath.row].displayname).filter("modname = %@", "forum").first
@@ -474,7 +474,7 @@ class DashboardViewController : UITableViewController, UISearchBarDelegate, UISe
                 }
             } else {
                 cell.courseName.text = courseList[indexPath.row].courseCode
-                cell.courseFullName.text = courseList[indexPath.row].courseName.replacingOccurrences(of: "&amp;", with: "&")
+                cell.courseFullName.text = courseList[indexPath.row].courseName.cleanUp()
                 cell.courseName.textColor = UIColor.UIColorFromString(string: courseList[indexPath.row].allotedColor)
                 let unreadModules = realm.objects(Module.self).filter("coursename = %@", courseList[indexPath.row].displayname).filter("read = NO")
                 let currentDiscussionModule = realm.objects(Module.self).filter("coursename = %@", courseList[indexPath.row].displayname).filter("modname = %@", "forum").first
@@ -624,9 +624,20 @@ class DashboardViewController : UITableViewController, UISearchBarDelegate, UISe
                 }
                 
                 for i in 0 ..< courseContent.count {
-                    if courseContent[i]["modules"].count > 0 {
+                    if courseContent[i]["modules"].count > 0 || courseContent[i]["summary"] != "" {
                         let section = CourseSection()
                         section.name = courseContent[i]["name"].string!
+                        if courseContent[i]["summary"] != "" {
+                            // create a summary module and load it in a discussion cell
+                            let summaryModule = Module()
+                            summaryModule.name = "Summary"
+                            summaryModule.coursename = courseName
+                            summaryModule.moduleDescription = courseContent[i]["summary"].string!
+                            summaryModule.modname = "summary"
+                            summaryModule.id = courseContent[i]["id"].int!
+                            summaryModule.read = true
+                            section.modules.append(summaryModule)
+                        } // add summary module
                         for j in 0 ..< courseContent[i]["modules"].array!.count {
                             let moduleData = Module()
                             moduleData.modname = courseContent[i]["modules"][j]["modname"].string!
@@ -675,10 +686,10 @@ class DashboardViewController : UITableViewController, UISearchBarDelegate, UISe
                             }
                             moduleData.coursename = courseName
                             section.modules.append(moduleData)
-                            section.courseId = courseId
-                            section.key = String(courseId) + section.name
-                            section.dateCreated = Date().timeIntervalSince1970
                         }
+                        section.courseId = courseId
+                        section.key = String(courseId) + section.name
+                        section.dateCreated = Date().timeIntervalSince1970
                         try! realm.write {
                             realm.add(section, update: .modified)
                             
